@@ -34,6 +34,7 @@ class Worker:
     def __init__(self, job_id: int, base_output_dir: Path):
         self.job_id = job_id
         self.base_output_dir = Path(base_output_dir)
+        self.human_session_verified = False
 
     async def run(self, page: Page):
         """Main loop for processing a job's records."""
@@ -101,70 +102,113 @@ class Worker:
             with SessionLocal() as db:
                 mark_record_attempt_started(db, record_id)
             try:
-                # Safe recovery to entry state
-                from app.automation.navigation import navigate_to_bhulekh_home
-                await navigate_to_bhulekh_home(page, timeout_ms=60000)
-                await page.wait_for_load_state("domcontentloaded")
+                from app.automation.navigation import navigate_to_bhulekh_home, return_to_search_form
+                from app.automation.selectors import RESULT_IMAGE
                 
-                await select_location(page, loc) # Note: select_location expects a Job or LocationSelection, using loc which is equivalent
+                # Session reuse optimization
+                if self.human_session_verified:
+                    try:
+                        await return_to_search_form(page)
+                        img_visible = await page.evaluate(f"() => !!document.querySelector('{RESULT_IMAGE}')")
+                        if img_visible:
+                            raise NavigationError("Result image still visible after Back", ErrorCategory.UNKNOWN)
+                        await select_location(page, loc)
+                    except Exception as e:
+                        logger.info({"msg": "Failed to reuse session, falling back", "job_id": job_id_val, "record_id": record_id, "error": str(e)})
+                        self.human_session_verified = False
+                        await navigate_to_bhulekh_home(page, timeout_ms=60000)
+                        await page.wait_for_load_state("domcontentloaded")
+                        await select_location(page, loc)
+                else:
+                    await navigate_to_bhulekh_home(page, timeout_ms=60000)
+                    await page.wait_for_load_state("domcontentloaded")
+                    await select_location(page, loc)
+                
                 await prepare_record(page, record_survey_identifier, job_id_val, record_id)
                 
-                with SessionLocal() as db:
-                    mark_record_waiting_for_captcha(db, record_id)
-                    update_job_status(db, self.job_id, JobStatus.WAITING_FOR_CAPTCHA)
+                # State Detection: Determine actual visible portal state
+                # Do not infer "CAPTCHA required" merely from DOM elements.
+                # Only RESULT_AVAILABLE allows bypassing human verification.
+                is_verification_required = True
                 
-                # Surface the official page for the operator (no field interaction).
-                try:
-                    await page.bring_to_front()
-                except Exception:
-                    pass
+                if self.human_session_verified:
+                    for _ in range(5):
+                        # Check for RESULT_AVAILABLE
+                        img_valid = await page.evaluate(f"""() => {{
+                            const img = document.querySelector('{RESULT_IMAGE}');
+                            if (!img || !img.src) return false;
+                            if (img.naturalWidth === 0 || img.naturalHeight === 0) return false;
+                            return true;
+                        }}""")
+                        
+                        if img_valid:
+                            is_verification_required = False
+                            break
+                            
+                        await asyncio.sleep(1)
                 
-                target_title = f"BHULEKH_JOB_{job_id_val}_RECORD_{record_id}_WAITING"
-                try:
-                    await page.evaluate(f'document.title = "{target_title}"')
-                except Exception:
-                    pass
-                
-                human_wait_start = time.time()
+                if is_verification_required:
+                    self.human_session_verified = False
+                    with SessionLocal() as db:
+                        mark_record_waiting_for_captcha(db, record_id)
+                        update_job_status(db, self.job_id, JobStatus.WAITING_FOR_CAPTCHA)
+                    
+                    # Surface the official page for the operator (no field interaction).
+                    try:
+                        await page.bring_to_front()
+                    except Exception:
+                        pass
+                    
+                    target_title = f"BHULEKH_JOB_{job_id_val}_RECORD_{record_id}_WAITING"
+                    try:
+                        await page.evaluate(f'document.title = "{target_title}"')
+                    except Exception:
+                        pass
+                    
+                    human_wait_start = time.time()
                 
                 # Wait for Human
-                try:
-                    await wait_for_human_result(page, self.job_id, timeout_ms=3600000, target_title=target_title)
-                except HumanWaitTimeout:
-                    logger.info({"msg": "Human wait timeout", "job_id": job_id_val, "record_id": record_id})
-                    # Do not fail record, do not retry. Just pause the job.
-                    with SessionLocal() as db:
-                        job = get_job(db, self.job_id)
-                        if job:
-                            job.pause_requested = True
-                            db.commit()
-                    return # Exit this record processing, outer loop will see pause
-                except PauseRequested:
-                    logger.info({"msg": "Pause detected during human wait", "job_id": job_id_val, "record_id": record_id})
-                    return # Exit this record processing, outer loop will see pause
-                except SessionResetDetected:
-                    logger.info({"msg": "Session reset detected during human wait", "job_id": job_id_val, "record_id": record_id})
-                    # Exit this attempt so that the outer queue loop will fetch it again (as it's still WAITING_FOR_CAPTCHA)
-                    # and start a fresh automation prep cycle.
-                    return
-                except InvisibleWindowError as e:
-                    logger.error({"msg": "Window invisibility detected", "job_id": job_id_val, "record_id": record_id})
-                    # Do not fail the record for environmental UI issues. Pause the job safely.
-                    with SessionLocal() as db:
-                        job = get_job(db, self.job_id)
-                        if job:
-                            job.pause_requested = True
-                            job.last_error_message = "Paused: Human verification window is invisible or isolated."
-                            db.commit()
-                    return
-                finally:
-                    duration = time.time() - human_wait_start
-                    human_wait_duration += duration
-                    with SessionLocal() as db:
-                        r = db.query(JobRecord).filter(JobRecord.id == record_id).first()
-                        if r:
-                            r.human_wait_seconds = (r.human_wait_seconds or 0) + duration
-                            db.commit()
+                if is_verification_required:
+                    try:
+                        await wait_for_human_result(page, self.job_id, timeout_ms=3600000, target_title=target_title)
+                    except HumanWaitTimeout:
+                        logger.info({"msg": "Human wait timeout", "job_id": job_id_val, "record_id": record_id})
+                        # Do not fail record, do not retry. Just pause the job.
+                        with SessionLocal() as db:
+                            job = get_job(db, self.job_id)
+                            if job:
+                                job.pause_requested = True
+                                db.commit()
+                        return # Exit this record processing, outer loop will see pause
+                    except PauseRequested:
+                        logger.info({"msg": "Pause detected during human wait", "job_id": job_id_val, "record_id": record_id})
+                        return # Exit this record processing, outer loop will see pause
+                    except SessionResetDetected:
+                        logger.info({"msg": "Session reset detected during human wait", "job_id": job_id_val, "record_id": record_id})
+                        # Exit this attempt so that the outer queue loop will fetch it again (as it's still WAITING_FOR_CAPTCHA)
+                        # and start a fresh automation prep cycle.
+                        return
+                    except InvisibleWindowError as e:
+                        logger.error({"msg": "Window invisibility detected", "job_id": job_id_val, "record_id": record_id})
+                        # Do not fail the record for environmental UI issues. Pause the job safely.
+                        with SessionLocal() as db:
+                            job = get_job(db, self.job_id)
+                            if job:
+                                job.pause_requested = True
+                                job.last_error_message = "Paused: Human verification window is invisible or isolated."
+                                db.commit()
+                        return
+                    finally:
+                        duration = time.time() - human_wait_start
+                        human_wait_duration += duration
+                        with SessionLocal() as db:
+                            r = db.query(JobRecord).filter(JobRecord.id == record_id).first()
+                            if r:
+                                r.human_wait_seconds = (r.human_wait_seconds or 0) + duration
+                                db.commit()
+                                
+                        # If we successfully waited for human, mark session as verified
+                        self.human_session_verified = True
                         
                 with SessionLocal() as db:
                     mark_record_running(db, record_id)
@@ -192,6 +236,7 @@ class Worker:
                 logger.error({"msg": "Navigation error", "job_id": job_id_val, "record_id": record_id, "attempt": attempt, "category": ne.category.value, "error": str(ne)})
                 
                 if is_retryable_error(ne.category):
+                    self.human_session_verified = False
                     if attempt < MAX_ATTEMPTS:
                         await apply_backoff(attempt)
                         continue
@@ -200,12 +245,14 @@ class Worker:
                             mark_record_failed(db, record_id, ne.category, str(ne))
                         break
                 else:
+                    self.human_session_verified = False
                     # Fail Closed
                     with SessionLocal() as db:
                         mark_record_failed(db, record_id, ne.category, str(ne))
                     break
                     
             except Exception as e:
+                self.human_session_verified = False
                 logger.error({"msg": "Unknown error", "job_id": job_id_val, "record_id": record_id, "attempt": attempt, "error": str(e)})
                 with SessionLocal() as db:
                     mark_record_failed(db, record_id, ErrorCategory.UNKNOWN, str(e))

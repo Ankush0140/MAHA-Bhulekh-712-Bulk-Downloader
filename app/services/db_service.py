@@ -277,7 +277,7 @@ def reconcile_interrupted_jobs(db: Session, output_root_dir: Path):
             waiting.status = RecordStatus.PENDING
             waiting.updated_at = datetime.datetime.utcnow()
         
-        running_records = db.query(JobRecord).filter(JobRecord.job_id == job.id, JobRecord.status == JobStatus.RUNNING).all()
+        running_records = db.query(JobRecord).filter(JobRecord.job_id == job.id, JobRecord.status == RecordStatus.RUNNING).all()
         for record in running_records:
             is_valid = False
             if record.output_relative_path:

@@ -298,3 +298,22 @@ async def wait_for_human_result(page: Page, job_id: int, timeout_ms: int = 36000
             
         # Sleep for polling interval
         await asyncio.sleep(2.0)
+
+async def return_to_search_form(page: Page, timeout_ms: int = 30000):
+    """
+    Clicks the official Back button and waits for full navigation back to the search form.
+    """
+    try:
+        async with page.expect_navigation(wait_until="domcontentloaded", timeout=timeout_ms):
+            await page.locator(BACK_BUTTON).click()
+    except PlaywrightTimeoutError as e:
+        raise NavigationError("Timeout returning to search form via Back button.", ErrorCategory.TIMEOUT)
+        
+    try:
+        await page.wait_for_selector(SEARCH_TYPE_SELECT, state="visible", timeout=15000)
+    except PlaywrightTimeoutError as e:
+        raise NavigationError("Search form not visible after Back navigation.", ErrorCategory.TIMEOUT)
+        
+    url = page.url
+    if "bhulekh.mahabhumi.gov.in" not in url:
+        raise NavigationError(f"Unexpected origin after Back: {url}", ErrorCategory.UNKNOWN)
