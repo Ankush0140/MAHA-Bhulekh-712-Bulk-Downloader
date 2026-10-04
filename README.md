@@ -20,7 +20,7 @@ The application uses a modern async stack:
 ## Requirements
 - Windows OS
 - Python 3.11+
-- Chrome/Chromium browser
+- Installed Google Chrome browser (required for the visible human-verification workflow)
 
 ## Installation
 1. Create and activate a Python 3.11 virtual environment:
@@ -48,9 +48,11 @@ Access the web interface at: `http://127.0.0.1:8000`
 
 ## Usage Workflow
 1. **Location Selection**: Select Division, District, Taluka, and Village.
-2. **Discovery**: The app automatically extracts all available survey numbers.
-3. **Queue & Download**: Review discovered numbers and click Start Download.
-4. **Processing**: The application prepares each record and prompts for human intervention when necessary.
+2. **Start Download**: Click Start Download to begin the automated process.
+3. **Discovery**: The app automatically discovers all available survey numbers.
+4. **Processing**: The application prepares each record sequentially.
+5. **Human Verification**: The operator manually solves CAPTCHA when prompted.
+6. **Report Generation**: CSV and Excel reports are generated upon completion.
 
 ## Human CAPTCHA Workflow
 The application does not crack, bypass, OCR, replay, or automate CAPTCHA. CAPTCHA is completed manually on the official Maharashtra Bhulekh website whenever the portal requests it.
@@ -149,3 +151,12 @@ pytest
 
 ## Demo Instructions
 See [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) for a step-by-step guide on how to demonstrate the functionality of this application.
+
+## Demo Video
+See the practical execution demonstration here: [demo/MAHA_Bhulekh_Demo.mp4](demo/MAHA_Bhulekh_Demo.mp4)
+
+## Sample Output
+Sample generated PDFs and reports are available in: [sample_output/PDFs/](sample_output/PDFs/)
+
+## Project Documentation
+Detailed technical documentation, performance, and limitations can be found in: [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md)
