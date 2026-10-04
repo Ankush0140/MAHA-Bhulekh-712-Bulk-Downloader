@@ -273,14 +273,19 @@ document.addEventListener('DOMContentLoaded', () => {
         generateReportsBtn.textContent = 'Generating...';
         try {
             await apiRequest(`/api/jobs/${currentJobId}/reports`, { method: 'POST' });
-            completionMessage.textContent = 'Reports generated/refreshed successfully.';
+            completionMessage.textContent = 'Report generated successfully';
             completionMessage.className = 'alert alert-success mt-1';
             completionMessage.style.display = 'block';
+            
+            downloadCsvBtn.href = `/api/jobs/${currentJobId}/reports/csv`;
+            downloadCsvBtn.style.display = 'inline-block';
+            downloadXlsxBtn.href = `/api/jobs/${currentJobId}/reports/xlsx`;
+            downloadXlsxBtn.style.display = 'inline-block';
         } catch (error) {
             // apiRequest shows notice
         } finally {
             generateReportsBtn.disabled = false;
-            generateReportsBtn.textContent = 'Generate / Refresh Reports';
+            generateReportsBtn.textContent = 'Generate Report';
         }
     });
 
@@ -316,14 +321,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const isTerminal = ['COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED'].includes(job.status);
         
+        reportControls.style.display = 'block';
         if (isTerminal) {
-            reportControls.style.display = 'block';
             downloadCsvBtn.href = `/api/jobs/${job.id}/reports/csv`;
             downloadCsvBtn.style.display = 'inline-block';
             downloadXlsxBtn.href = `/api/jobs/${job.id}/reports/xlsx`;
             downloadXlsxBtn.style.display = 'inline-block';
-        } else {
-            reportControls.style.display = 'none';
         }
         
         if (job.status === 'DISCOVERING') {

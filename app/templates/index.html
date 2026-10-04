@@ -84,7 +84,7 @@
                 </div>
                 <div class="card-footer info-text">
                     <p>Automated discovery currently supports numeric Survey/Gat enumeration. Akshar/अक्षरी enumeration remains unverified.</p>
-                    <p>Structural session-reset recovery is supported. Exact live portal session-expiry behavior remains under verification.</p>
+                    <p>Structural session-reset recovery is supported. Portal sessions may expire or reset during navigation, network delays, or extended human interaction. The application detects uncertain states and falls back to safe human verification/retry handling.</p>
                     <p>CAPTCHA and mobile verification are completed directly on the official Bhulekh website and are not stored by this application.</p>
                     <p>Division is an application-side administrative grouping based on verified Government of Maharashtra revenue-division sources. District options and their portal values come from Bhulekh and are classified using explicit verified portal-label mappings.</p>
                     <p>The verified Maharashtra hierarchy contains 36 administrative districts. The inspected Bhulekh District dropdown exposed 35 options; Mumbai City was not observed as a separate option and no portal value is fabricated for it.</p>
@@ -135,7 +135,7 @@
                     
                     <div class="report-controls" id="reportControls" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                         <h4>Reports</h4>
-                        <button type="button" id="generateReportsBtn" class="btn btn-secondary">Generate / Refresh Reports</button>
+                        <button type="button" id="generateReportsBtn" class="btn btn-secondary">Generate Report</button>
                         <a id="downloadCsvBtn" href="#" class="btn btn-success" style="display: none;" target="_blank">Download CSV</a>
                         <a id="downloadXlsxBtn" href="#" class="btn btn-success" style="display: none;" target="_blank">Download Excel</a>
                     </div>

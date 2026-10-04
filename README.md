@@ -1,7 +1,7 @@
 # MAHA Bhulekh 7/12 Bulk Downloader
 
 ## Project Overview
-A local web application for Maharashtra Bhulekh 7/12 land record discovery and bulk downloading. It automates the discovery of survey numbers and the downloading of digitally signed (if available) or standard 7/12 land records.
+A local web application for Maharashtra Bhulekh 7/12 land record discovery and bulk downloading. It automates the discovery of survey numbers and retrieves 7/12 views from the public Maharashtra Bhulekh workflow.
 
 ## Features
 - **Automated Survey Discovery**: Automatically finds available survey/gat numbers for a selected village.
@@ -66,7 +66,7 @@ When the portal requests verification:
 - **Retry**: Failed records are safely queued and can be retried automatically or manually after a job completes.
 
 ## Output Structure
-Successfully downloaded PDFs and generated reports are stored locally:
+Successfully downloaded PDFs and generated reports are stored locally under `output/<District>/<Taluka>/<Village>/`:
 ```
 output/
 └── District/
@@ -79,7 +79,16 @@ output/
 ```
 
 ## CSV / Excel Reporting
-At the end of a job, the system generates comprehensive `report.csv` and `report.xlsx` files. The report includes:
+At the end of a job, the system generates comprehensive `District_Taluka_Village_summary.csv` and `District_Taluka_Village_summary.xlsx` files. The Excel report contains both Summary and Records sheets.
+
+Reports can also be manually generated for an existing job using:
+`POST /api/jobs/{job_id}/reports`
+
+And subsequently downloaded using:
+`GET /api/jobs/{job_id}/reports/csv`
+`GET /api/jobs/{job_id}/reports/xlsx`
+
+The report includes:
 - **Survey/Gat/Hissa**: The target identifier.
 - **Status**: COMPLETED, FAILED, etc.
 - **Attempts**: Number of automation attempts.
@@ -93,38 +102,44 @@ At the end of a job, the system generates comprehensive `report.csv` and `report
 The system features bounded retry mechanisms for network timeouts, ASP.NET postback failures, and session drops. A technical retry (e.g., waiting for Bhulekh servers to respond) is managed strictly by the automation and is NOT counted as a CAPTCHA attempt. The application safely resets state and falls back to human verification when navigation state becomes uncertain.
 
 ## Performance
-*Note: Unmeasured values are marked as [Pending final benchmark].*
 
-| Metric | Value |
-|--------|-------|
-| Sample Village | [Pending final benchmark] |
-| Records Tested | [Pending final benchmark] |
-| Completed | [Pending final benchmark] |
-| Failed | [Pending final benchmark] |
-| Average Automated Time/Record | [Pending final benchmark] |
-| Total Automated Processing Time | [Pending final benchmark] |
-| Human CAPTCHA Wait Time | [Pending final benchmark] |
-| Network/Timeout Time | [Pending final benchmark] |
-| Total Elapsed Test Time | [Pending final benchmark] |
+Performance depends heavily on the response time of the official Bhulekh portal, network conditions, and the time taken by the operator to complete human verification.
 
-*(Automated processing time is rigorously measured separately from human CAPTCHA waiting time).*
+| Metric | Observed Result |
+|---|---|
+| Sample Size | 5 records |
+| End-to-End Time | Approximately 2–3 minutes |
+| Approx. End-to-End Time per Record | 24–36 seconds |
+| CAPTCHA Handling | Manual / human-in-the-loop |
+| Automated Processing Time | Recorded separately by the application |
+| Human Verification Time | Recorded separately by the application |
+| Network / Portal Delays | Variable |
+
+The 2–3 minute measurement is an observed end-to-end test for five records and includes portal response time and manual verification. It should not be interpreted as a guaranteed throughput rate. The 24–36 seconds is not pure automated processing time; it strictly includes portal/network response and manual human verification.
+
+The application separately records `Automated Processing Seconds` and `Human Verification Seconds` in the generated CSV/Excel reports so that automation performance can be evaluated independently from operator wait time.
 
 ## Official API & Bulk-Access Research
 For information regarding the research into official APIs and bulk-access mechanisms, please read our [API and Bulk-Access Document](docs/api-and-bulk-access.md).
 
 ## Privacy, Compliance & Legal
 - **Educational/Assignment Purpose**: This tool is developed strictly as a technical assignment and educational proof-of-concept.
-- **Official Portal Source**: The official Bhulekh portal remains the sole source of truth. Please verify whether the portal provides digitally signed 7/12s or standard online views for your selected region.
+- **Official Portal Source**: The official Bhulekh portal remains the sole source of truth.
 - **Human-in-the-Loop**: The CAPTCHA verification is strictly manual. There is no OCR, bypassing, or replaying of tokens.
 - **No Persistence of PII**: Mobile numbers and CAPTCHA values entered by the operator during verification are NOT intentionally captured, logged, or persisted by this application.
 - **Controlled Access**: The system enforces controlled request rates and concurrency to respect the portal's stability.
 - **Compliance Responsibility**: Users of this software are entirely responsible for complying with the official Maharashtra Bhulekh Terms of Service, applicable laws, and data privacy regulations. Downloaded land-record information must be handled appropriately.
 - **No Legal Guarantees**: The developers provide no legal guarantees or warranties regarding the use of this software.
 
+## Record Validity
+- The public Mahabhulekh viewing information is stated by the official portal as not usable for government/legal purposes.
+- Maharashtra separately provides a Digitally Signed 7/12 service whose official portal states digitally signed records can be used for official/legal purposes.
+- This project should not represent public-view output as equivalent to digitally signed records.
+
 ## Known Limitations
 - The verified Maharashtra hierarchy contains 36 administrative districts. The inspected Bhulekh District dropdown exposed 35 options; Mumbai City was not observed as a separate option and no portal value is fabricated for it.
 - Division is an application-side administrative grouping based on verified Government of Maharashtra revenue-division sources. District options and their portal values come from Bhulekh and are classified using explicit verified portal-label mappings.
-- Testing has established that verification and session behavior can reset between records or after navigation/session/network delays, so the application does not guarantee one-CAPTCHA bulk operation. If the official portal preserves verification naturally during a session, the application may continue using that same browser session, but it does not manipulate the verification mechanism.
+- Testing has established that verification and session behavior can reset between records or after navigation/session/network delays, so the application does not guarantee one-CAPTCHA bulk operation. Portal sessions may expire or reset during navigation, network delays, or extended human interaction. The application detects uncertain states and falls back to safe human verification/retry handling.
 
 ## Testing
 Run unit and integration tests using:

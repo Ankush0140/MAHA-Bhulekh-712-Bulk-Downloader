@@ -9,4 +9,6 @@ This document outlines the research conducted regarding official data access for
 ## API Research Findings
 During the project research, no documented public bulk-download API suitable for this assignment was identified in the official resources reviewed. 
 
-This should not be interpreted as proof that no government/internal API exists (e.g., via specific inter-departmental systems). However, because no publicly documented, open-access bulk API could be publicly verified for use in this assignment, this application utilizes standard UI automation (acting as an assistive tool for a human operator) to interact with the public viewing service.
+Official Maharashtra Land Records material indicates API-based Record of Rights access exists for certain institutional users such as banks, insurance companies, and government/semi-government offices.
+
+However, because no documented open public bulk-download API suitable for this assignment was identified in the official resources reviewed, this application utilizes standard UI automation (acting as an assistive tool for a human operator) to interact with the public viewing service.
