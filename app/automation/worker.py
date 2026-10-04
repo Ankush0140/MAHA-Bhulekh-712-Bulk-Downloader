@@ -102,7 +102,8 @@ class Worker:
                 mark_record_attempt_started(db, record_id)
             try:
                 # Safe recovery to entry state
-                await page.goto("https://bhulekh.mahabhumi.gov.in/", timeout=60000)
+                from app.automation.navigation import navigate_to_bhulekh_home
+                await navigate_to_bhulekh_home(page, timeout_ms=60000)
                 await page.wait_for_load_state("domcontentloaded")
                 
                 await select_location(page, loc) # Note: select_location expects a Job or LocationSelection, using loc which is equivalent

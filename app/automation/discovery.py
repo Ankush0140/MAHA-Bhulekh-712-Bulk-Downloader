@@ -154,15 +154,9 @@ async def discover_numeric_surveys(
             pre_options = await extract_select_options(page, SURVEY_RESULT_SELECT)
             pre_sig = compute_options_signature(pre_options)
 
-            # Click Search button & wait for postback POST response
-            async with page.expect_response(
-                lambda r: r.request.method == "POST" and "mahabhumi.gov.in" in r.url,
-                timeout=30000
-            ):
-                await page.locator(SEARCH_BUTTON).click()
-
-            await page.wait_for_load_state("domcontentloaded")
-            await asyncio.sleep(request_delay)
+            # Click Search button and wait robustly for ASP.NET postback via PageRequestManager
+            from app.automation.navigation import wait_for_aspnet_postback
+            await wait_for_aspnet_postback(page, SEARCH_BUTTON)
 
             post_options = await extract_select_options(page, SURVEY_RESULT_SELECT)
             post_sig = compute_options_signature(post_options)
@@ -193,13 +187,7 @@ async def discover_numeric_surveys(
             await input_elem.fill("")
             await input_elem.fill(child_prefix)
 
-            async with page.expect_response(
-                lambda r: r.request.method == "POST" and "mahabhumi.gov.in" in r.url,
-                timeout=30000
-            ):
-                await page.locator(SEARCH_BUTTON).click()
-
-            await page.wait_for_load_state("domcontentloaded")
+            await wait_for_aspnet_postback(page, SEARCH_BUTTON)
             child_options = await extract_select_options(page, SURVEY_RESULT_SELECT)
             child_clean = [opt["value"] for opt in child_options if not is_placeholder_option(opt["text"], opt["value"])]
 

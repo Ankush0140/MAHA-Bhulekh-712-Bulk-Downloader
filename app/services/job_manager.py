@@ -61,7 +61,8 @@ class JobManager:
                 if job.status == JobStatus.DISCOVERING:
                     # Discover records
                     try:
-                        await page.goto("https://bhulekh.mahabhumi.gov.in/", timeout=60000)
+                        from app.automation.navigation import navigate_to_bhulekh_home
+                        await navigate_to_bhulekh_home(page, timeout_ms=60000)
                         await page.wait_for_load_state("domcontentloaded")
                         await select_location(page, job)
                         

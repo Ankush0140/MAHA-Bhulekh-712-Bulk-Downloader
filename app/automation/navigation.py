@@ -18,6 +18,21 @@ class NavigationError(Exception):
         super().__init__(message)
         self.category = category
 
+async def navigate_to_bhulekh_home(page: Page, timeout_ms: int = 60000):
+    """
+    Centralized helper to safely navigate to the Bhulekh homepage.
+    Uses 'domcontentloaded' to avoid waiting for slow external resources.
+    Waits for a critical DOM element to verify form readiness.
+    Converts Playwright timeouts to transient ErrorCategory.TIMEOUT.
+    """
+    try:
+        await page.goto("https://bhulekh.mahabhumi.gov.in/", wait_until="domcontentloaded", timeout=timeout_ms)
+        await page.wait_for_selector(DISTRICT_SELECT, state="visible", timeout=15000)
+    except PlaywrightTimeoutError as e:
+        raise NavigationError(f"Timeout loading Bhulekh homepage: {e}", ErrorCategory.TIMEOUT)
+    except Exception as e:
+        raise NavigationError(f"Failed to load Bhulekh homepage: {e}", ErrorCategory.UNKNOWN)
+
 async def select_location(page: Page, job: Job):
     """Reselects district, taluka, village based on Job persistence."""
     try:
@@ -63,6 +78,42 @@ async def select_location(page: Page, job: Job):
     except Exception as e:
         raise NavigationError(f"Error during location selection: {e}", ErrorCategory.UNKNOWN)
 
+async def wait_for_aspnet_postback(page: Page, trigger_selector: str):
+    """
+    Triggers an action (click) and deterministically waits for the ASP.NET
+    Sys.WebForms.PageRequestManager async postback to fully complete using native events.
+    """
+    await page.evaluate(f"""(sel) => {{
+        return new Promise((resolve, reject) => {{
+            const btn = document.querySelector(sel);
+            if (!btn) {{
+                reject(new Error("Trigger element not found: " + sel));
+                return;
+            }}
+            
+            if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {{
+                const prm = Sys.WebForms.PageRequestManager.getInstance();
+                const endHandler = function(sender, args) {{
+                    prm.remove_endRequest(endHandler);
+                    resolve("POSTBACK_COMPLETE");
+                }};
+                prm.add_endRequest(endHandler);
+                btn.click();
+                
+                // Fallback for fast completion or no actual postback triggered
+                setTimeout(() => {{
+                    if (!prm.get_isInAsyncPostBack()) {{
+                        prm.remove_endRequest(endHandler);
+                        resolve("NO_POSTBACK_STARTED_OR_FINISHED_FAST");
+                    }}
+                }}, 500);
+            }} else {{
+                btn.click();
+                resolve("NO_PRM_FOUND");
+            }}
+        }});
+    }}""", trigger_selector)
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -84,29 +135,21 @@ async def prepare_record(page: Page, survey_identifier_original: str, job_id: in
         await input_elem.fill("")
         await input_elem.fill(prefix)
 
-        async def get_options():
-            return await page.evaluate(f"""() => {{
-                const el = document.querySelector('{SURVEY_RESULT_SELECT}');
-                if (!el) return [];
-                return Array.from(el.options).map(o => ({{ text: o.text, value: o.value }}));
-            }}""")
-            
-        pre_options = await get_options()
-
-        async with page.expect_response(lambda r: r.request.method == "POST" and "mahabhumi.gov.in" in r.url, timeout=30000):
-            await page.locator(SEARCH_BUTTON).click()
-            
-        await page.wait_for_load_state("domcontentloaded")
-        
-        options = pre_options
-        for _ in range(40): # max 10 seconds
-            await asyncio.sleep(0.25)
-            options = await get_options()
-            if options != pre_options:
-                break
+        # Wait robustly for ASP.NET postback via PageRequestManager
+        await wait_for_aspnet_postback(page, SEARCH_BUTTON)
         
         # Select exact survey
         dropdown = page.locator(SURVEY_RESULT_SELECT)
+        
+        # Extract options
+        options = await page.evaluate(f"""(sel) => {{
+            const el = document.querySelector(sel);
+            if (!el) return [];
+            return Array.from(el.options).map(o => ({{
+                text: o.text,
+                value: o.value
+            }}));
+        }}""", SURVEY_RESULT_SELECT)
         
         from app.automation.text_utils import normalize_survey_identifier
         
@@ -190,8 +233,36 @@ async def wait_for_human_result(page: Page, job_id: int, timeout_ms: int = 36000
         # 1.5 Check Window Visibility
         if target_title:
             from app.automation.window_check import has_visible_window_with_title
+            
+            if page.is_closed():
+                raise InvisibleWindowError("Playwright page is closed.")
+                
             if not has_visible_window_with_title(target_title):
-                raise InvisibleWindowError("Browser window is inherently invisible or closed")
+                # Bounded retry for OS window title update race condition
+                is_visible = False
+                for _ in range(5):
+                    await asyncio.sleep(0.5)
+                    if has_visible_window_with_title(target_title):
+                        is_visible = True
+                        break
+                        
+                if not is_visible:
+                    try:
+                        actual_title = await page.title()
+                        actual_url = page.url
+                    except Exception:
+                        actual_title = "ERROR_FETCHING_TITLE"
+                        actual_url = "ERROR_FETCHING_URL"
+                        
+                    logger.error({
+                        "msg": "Window invisibility diagnostic",
+                        "job_id": job_id,
+                        "expected_title": target_title,
+                        "actual_title": actual_title,
+                        "url": actual_url,
+                        "reason": "has_visible_window_with_title returned False after retries",
+                    })
+                    raise InvisibleWindowError("Browser window is inherently invisible or closed")
             
         # 2. Check for Success (Result Image)
         try:

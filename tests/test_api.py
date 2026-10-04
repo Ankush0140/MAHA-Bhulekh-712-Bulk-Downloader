@@ -58,7 +58,7 @@ def mock_job_manager():
 def test_health_endpoint():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "build": "postback-navigation-fix-v1"}
 
 def test_get_divisions():
     response = client.get("/api/locations/divisions")

@@ -15,28 +15,23 @@ def _is_interactive_winsta() -> bool:
     except Exception:
         return False
 
-def has_visible_window_with_title(target_title: str) -> bool:
-    if not _is_interactive_winsta():
-        return False
-
+def get_visible_window_titles() -> list[str]:
     EnumWindows = ctypes.windll.user32.EnumWindows
     EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
     IsWindowVisible = ctypes.windll.user32.IsWindowVisible
     GetWindowText = ctypes.windll.user32.GetWindowTextW
     GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
 
-    visible = False
+    titles = []
 
     def foreach_window(hwnd, lParam):
-        nonlocal visible
         if IsWindowVisible(hwnd):
             length = GetWindowTextLength(hwnd)
             buff = ctypes.create_unicode_buffer(length + 1)
             GetWindowText(hwnd, buff, length + 1)
             title = buff.value
-            if target_title in title:
-                visible = True
-                return False
+            if title:
+                titles.append(title)
         return True
 
     try:
@@ -44,4 +39,14 @@ def has_visible_window_with_title(target_title: str) -> bool:
     except Exception:
         pass
         
-    return visible
+    return titles
+
+def has_visible_window_with_title(target_title: str) -> bool:
+    if not _is_interactive_winsta():
+        return False
+
+    for title in get_visible_window_titles():
+        if target_title in title:
+            return True
+            
+    return False

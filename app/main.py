@@ -7,9 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.services.job_manager import job_manager
 from app.routes import locations, jobs, progress
 
+APP_BUILD = "postback-navigation-fix-v1"
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    print(f"Starting server with build: {APP_BUILD}")
     job_manager.init_app()
     yield
     # Shutdown
@@ -45,7 +48,7 @@ app.include_router(progress.router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "build": APP_BUILD}
 
 
 @app.get("/")
