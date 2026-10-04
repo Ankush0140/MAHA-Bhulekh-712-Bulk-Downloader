@@ -1,0 +1,72 @@
+.venv/
+venv/
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment / secrets
+
+.env
+.env.*
+!.env.example
+
+# Databases
+
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated output
+
+output/*
+!output/.gitkeep
+
+# Logs
+
+logs/*
+!logs/.gitkeep
+*.log
+
+# Browser / Playwright
+
+browser_profile/
+playwright/.auth/
+
+# Generated documents
+
+*.pdf
+
+# Testing / coverage
+
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Scratch / investigation files
+
+scratch/
+
+# IDE / editor
+
+.vscode/
+.idea/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary investigation files
+jobs_before.txt
+talukas.txt

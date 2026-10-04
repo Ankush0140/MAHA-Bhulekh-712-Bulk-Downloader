@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAHA Bhulekh 7/12 Bulk Downloader</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h1>MAHA Bhulekh 7/12 Bulk Downloader</h1>
+                    <p class="subtitle">Maharashtra Revenue Department Land Record Retrieval Tool</p>
+                </div>
+            </div>
+            <div class="header-status" id="headerStatus">
+                <span class="status-badge status-online">
+                    <span class="status-dot"></span> System Ready
+                </span>
+            </div>
+        </header>
+
+        <div id="apiErrorNotice" class="alert alert-danger" style="display: none;"></div>
+        
+        <!-- Human Verification Banner -->
+        <div id="captchaNotice" class="alert alert-warning" style="display: none;">
+            <strong>Human verification required</strong><br>
+            Complete the mobile number and CAPTCHA verification in the official Bhulekh browser window, then click Submit there.
+        </div>
+
+        <main class="app-main">
+            <!-- LOCATION SECTION -->
+            <section class="card selection-card">
+                <div class="card-header">
+                    <h2>Location Selection</h2>
+                </div>
+                <div class="card-body">
+
+                    <form id="downloadForm" class="form-grid">
+                        <div class="form-group">
+                            <label for="divisionSelect">Division (विभाग)</label>
+                            <select id="divisionSelect" class="form-select">
+                                <option value="">Select Division...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="districtSelect">District (जिल्हा)</label>
+                            <select id="districtSelect" class="form-select" disabled>
+                                <option value="">Select District...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="talukaSelect">Taluka (तालुका)</label>
+                            <select id="talukaSelect" class="form-select" disabled>
+                                <option value="">Select Taluka...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="villageSelect">Village (गांव)</label>
+                            <select id="villageSelect" class="form-select" disabled>
+                                <option value="">Select Village...</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-actions">
+                            <button type="button" id="startBtn" class="btn btn-primary" disabled>
+                                Start Download
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer info-text">
+                    <p>Automated discovery currently supports numeric Survey/Gat enumeration. Akshar/अक्षरी enumeration remains unverified.</p>
+                    <p>Structural session-reset recovery is supported. Exact live portal session-expiry behavior remains under verification.</p>
+                    <p>CAPTCHA and mobile verification are completed directly on the official Bhulekh website and are not stored by this application.</p>
+                    <p>Division is an application-side administrative grouping based on verified Government of Maharashtra revenue-division sources. District options and their portal values come from Bhulekh and are classified using explicit verified portal-label mappings.</p>
+                    <p>The verified Maharashtra hierarchy contains 36 administrative districts. The inspected Bhulekh District dropdown exposed 35 options; Mumbai City was not observed as a separate option and no portal value is fabricated for it.</p>
+                </div>
+            </section>
+
+            <!-- JOB STATUS SECTION -->
+            <section id="jobSection" class="card job-card" style="display: none;">
+                <div class="card-header">
+                    <h2>Current Job</h2>
+                    <div id="activeJobIdentity" class="active-job-identity" style="font-size: 0.9em; margin-bottom: 0.5rem; color: #555;">
+                        <span id="activeJobIdText"></span> - <span id="activeJobLocationText"></span>
+                    </div>
+                    <div class="job-status-row">
+                        <span>Status: <strong id="jobStatusBadge">—</strong></span>
+                        <span id="jobEta">ETA: Calculating...</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                        <div class="progress-text" id="progressText">0%</div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-label">Total</div>
+                            <div class="stat-value" id="statTotal">—</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Completed</div>
+                            <div class="stat-value success" id="statCompleted">0</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Failed</div>
+                            <div class="stat-value danger" id="statFailed">0</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Remaining</div>
+                            <div class="stat-value" id="statRemaining">0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="job-controls">
+                        <button type="button" id="pauseBtn" class="btn btn-secondary" disabled>Pause</button>
+                        <button type="button" id="resumeBtn" class="btn btn-primary" disabled>Resume</button>
+                        <button type="button" id="retryBtn" class="btn btn-warning" disabled>Retry Failed</button>
+                    </div>
+                    
+                    <div class="report-controls" id="reportControls" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                        <h4>Reports</h4>
+                        <button type="button" id="generateReportsBtn" class="btn btn-secondary">Generate / Refresh Reports</button>
+                        <a id="downloadCsvBtn" href="#" class="btn btn-success" style="display: none;" target="_blank">Download CSV</a>
+                        <a id="downloadXlsxBtn" href="#" class="btn btn-success" style="display: none;" target="_blank">Download Excel</a>
+                    </div>
+                    
+                    <div id="completionMessage" class="alert mt-1" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- CURRENT RECORD SECTION -->
+            <section id="recordSection" class="card record-card" style="display: none;">
+                <div class="card-header">
+                    <h2>Current Record</h2>
+                </div>
+                <div class="card-body">
+                    <p>Survey/Gat: <strong id="currentRecordId">—</strong></p>
+                    <p>Status: <span id="currentRecordStatus">—</span></p>
+                </div>
+            </section>
+
+            <!-- FAILED RECORDS SECTION -->
+            <section id="failedRecordsSection" class="card failed-card" style="display: none;">
+                <div class="card-header">
+                    <h2>Recent Errors / Failed Records</h2>
+                </div>
+                <div class="card-body">
+                    <table class="table" id="failedTable">
+                        <thead>
+                            <tr>
+                                <th>Survey/Gat</th>
+                                <th>Attempts</th>
+                                <th>Error Category</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="failedTableBody">
+                            <!-- rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
