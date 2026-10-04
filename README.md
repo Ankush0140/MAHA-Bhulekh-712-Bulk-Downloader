@@ -143,6 +143,13 @@ For information regarding the research into official APIs and bulk-access mechan
 - Division is an application-side administrative grouping based on verified Government of Maharashtra revenue-division sources. District options and their portal values come from Bhulekh and are classified using explicit verified portal-label mappings.
 - Testing has established that verification and session behavior can reset between records or after navigation/session/network delays, so the application does not guarantee one-CAPTCHA bulk operation. Portal sessions may expire or reset during navigation, network delays, or extended human interaction. The application detects uncertain states and falls back to safe human verification/retry handling.
 
+## Assignment Testing Notes
+- **Requested target:** Pune → Maval → Shivali
+- **Target volume:** Produced 700+ discovered records during testing.
+- **Submitted sample:** Uses a smaller demonstration village/sample due to repeated human verification requirements.
+- **Verification:** Provided test number `1234567890` did not complete the live portal verification flow during testing, so valid manual verification was used. No mobile number is intentionally stored.
+- **Digital Signing:** Digital signing was not required and is not implemented.
+
 ## Testing
 Run unit and integration tests using:
 ```cmd
