@@ -106,7 +106,7 @@ class Worker:
                 await page.wait_for_load_state("domcontentloaded")
                 
                 await select_location(page, loc) # Note: select_location expects a Job or LocationSelection, using loc which is equivalent
-                await prepare_record(page, record_survey_identifier)
+                await prepare_record(page, record_survey_identifier, job_id_val, record_id)
                 
                 with SessionLocal() as db:
                     mark_record_waiting_for_captcha(db, record_id)

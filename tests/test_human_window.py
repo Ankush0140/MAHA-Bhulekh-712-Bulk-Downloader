@@ -132,7 +132,7 @@ async def test_worker_persists_waiting_only_after_record_prepared(
 
     observed = {}
 
-    async def fake_prepare(page, survey):
+    async def fake_prepare(page, survey, *args, **kwargs):
         db_session.expire_all()
         observed["status_during_prepare"] = get_job(db_session, job.id).status
         observed["survey"] = survey

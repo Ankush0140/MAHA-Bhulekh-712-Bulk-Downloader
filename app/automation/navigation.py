@@ -63,7 +63,10 @@ async def select_location(page: Page, job: Job):
     except Exception as e:
         raise NavigationError(f"Error during location selection: {e}", ErrorCategory.UNKNOWN)
 
-async def prepare_record(page: Page, survey_identifier_original: str):
+import logging
+logger = logging.getLogger(__name__)
+
+async def prepare_record(page: Page, survey_identifier_original: str, job_id: int = 0, record_id: int = 0):
     """Search and select the exact Survey/Gat record."""
     try:
         # Ensure Numeric mode
@@ -81,23 +84,65 @@ async def prepare_record(page: Page, survey_identifier_original: str):
         await input_elem.fill("")
         await input_elem.fill(prefix)
 
+        async def get_options():
+            return await page.evaluate(f"""() => {{
+                const el = document.querySelector('{SURVEY_RESULT_SELECT}');
+                if (!el) return [];
+                return Array.from(el.options).map(o => ({{ text: o.text, value: o.value }}));
+            }}""")
+            
+        pre_options = await get_options()
+
         async with page.expect_response(lambda r: r.request.method == "POST" and "mahabhumi.gov.in" in r.url, timeout=30000):
             await page.locator(SEARCH_BUTTON).click()
+            
         await page.wait_for_load_state("domcontentloaded")
-        await asyncio.sleep(0.5)
-
+        
+        options = pre_options
+        for _ in range(40): # max 10 seconds
+            await asyncio.sleep(0.25)
+            options = await get_options()
+            if options != pre_options:
+                break
+        
         # Select exact survey
         dropdown = page.locator(SURVEY_RESULT_SELECT)
         
-        # Need to select by label specifically to ensure match
+        from app.automation.text_utils import normalize_survey_identifier
+        
+        norm_target = normalize_survey_identifier(survey_identifier_original)
+        target_val = None
+        
+        for o in options:
+            if normalize_survey_identifier(o['text']) == norm_target:
+                target_val = o['value']
+                break
+                
+        logger.info({
+            "msg": "Survey selection diagnostic",
+            "job_id": job_id,
+            "record_id": record_id,
+            "expected_survey": survey_identifier_original,
+            "search_prefix": prefix,
+            "dropdown_option_count": len(options),
+            "exact_match_found": target_val is not None,
+            "selected_value": target_val
+        })
+                
+        if target_val is None:
+            raise NavigationError(
+                f"Expected survey '{survey_identifier_original}' was not present after search prefix '{prefix}'.",
+                ErrorCategory.SURVEY_SELECTION_MISMATCH
+            )
+            
         async with page.expect_response(lambda r: r.request.method == "POST" and "mahabhumi.gov.in" in r.url, timeout=30000):
-            await dropdown.select_option(label=survey_identifier_original)
+            await dropdown.select_option(value=target_val)
             
         await page.wait_for_load_state("domcontentloaded")
         
         # Verify
         selected_text = await page.locator(f"{SURVEY_RESULT_SELECT} option:checked").inner_text()
-        if selected_text.strip() != survey_identifier_original.strip():
+        if normalize_survey_identifier(selected_text) != norm_target:
             raise NavigationError("Survey verification failed", ErrorCategory.SURVEY_SELECTION_MISMATCH)
 
     except PlaywrightTimeoutError as e:

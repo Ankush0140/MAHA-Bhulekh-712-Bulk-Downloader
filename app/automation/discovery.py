@@ -61,8 +61,10 @@ def process_and_deduplicate_options(
     valid_count = 0
     dup_count = 0
 
+    from app.automation.text_utils import normalize_survey_identifier
+
     for opt in raw_options:
-        text = opt.get("text", "").strip()
+        text = normalize_survey_identifier(opt.get("text", ""))
         val = opt.get("value", "").strip()
 
         if is_placeholder_option(text, val):
