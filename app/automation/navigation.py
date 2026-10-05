@@ -27,7 +27,7 @@ async def navigate_to_bhulekh_home(page: Page, timeout_ms: int = 60000):
     """
     try:
         await page.goto("https://bhulekh.mahabhumi.gov.in/", wait_until="domcontentloaded", timeout=timeout_ms)
-        await page.wait_for_selector(DISTRICT_SELECT, state="visible", timeout=15000)
+        await page.wait_for_selector(DISTRICT_SELECT, state="visible", timeout=timeout_ms)
     except PlaywrightTimeoutError as e:
         raise NavigationError(f"Timeout loading Bhulekh homepage: {e}", ErrorCategory.TIMEOUT)
     except Exception as e:

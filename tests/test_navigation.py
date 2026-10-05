@@ -21,12 +21,13 @@ async def test_navigate_to_bhulekh_home_success(mock_page):
 
 @pytest.mark.asyncio
 async def test_navigate_to_bhulekh_home_timeout(mock_page):
-    mock_page.goto.side_effect = PlaywrightTimeoutError("Timeout 60000ms exceeded.")
+    mock_page.wait_for_selector.side_effect = PlaywrightTimeoutError("Timeout 60000ms exceeded.")
     
     with pytest.raises(NavigationError) as exc:
-        await navigate_to_bhulekh_home(mock_page)
+        await navigate_to_bhulekh_home(mock_page, timeout_ms=60000)
         
     assert exc.value.category == ErrorCategory.TIMEOUT
+    mock_page.wait_for_selector.assert_called_once_with("#ContentPlaceHolder1_ddlMainDist", state="visible", timeout=60000)
 
 @pytest.mark.asyncio
 async def test_navigate_to_bhulekh_home_other_error(mock_page):
